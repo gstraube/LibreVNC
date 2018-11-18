@@ -9,7 +9,7 @@ import java.net.Socket
 
 class VncClient(host: String, port: Int) : AnkoLogger {
 
-    var socket: Socket = Socket(host, port)
+    private var socket: Socket = Socket(host, port)
 
     fun performHandshake(): Boolean {
         if (socket.isConnected) {
