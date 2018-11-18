@@ -19,7 +19,7 @@ class MainActivity : AppCompatActivity() {
 
             val wasHandshakeSuccessful = vncClient.performHandshake()
 
-            uiThread { /*Update the UI thread here*/ toast("Handshake successful: $wasHandshakeSuccessful") }
+            uiThread { toast("Handshake successful: $wasHandshakeSuccessful") }
         }
     }
 }
