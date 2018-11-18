@@ -18,8 +18,12 @@ class MainActivity : AppCompatActivity() {
             val vncClient = VncClient("192.168.42.64", 5900)
 
             val wasHandshakeSuccessful = vncClient.performHandshake()
+            val serverInitMessage = vncClient.initialize()
 
             uiThread { toast("Handshake successful: $wasHandshakeSuccessful") }
+            if (serverInitMessage != null) {
+                uiThread { toast("Received server init message (desktop name: ${serverInitMessage.desktopName}") }
+            }
         }
     }
 }
