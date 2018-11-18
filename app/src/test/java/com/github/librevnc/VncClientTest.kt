@@ -1,11 +1,13 @@
 package com.github.librevnc
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.PrintWriter
 import java.net.ServerSocket
+import java.nio.ByteBuffer
 
 class VncClientTest {
 
@@ -14,8 +16,9 @@ class VncClientTest {
         val serverSocket = ServerSocket(19215)
 
         val vncClient = VncClient("localhost", 19215)
+        var wasHandshakeSuccessful = false
         val thread = Thread(Runnable {
-            vncClient.performHandshake()
+            wasHandshakeSuccessful = vncClient.performHandshake()
         })
 
         thread.start()
@@ -40,10 +43,15 @@ class VncClientTest {
         val clientSecurityType = ByteArray(1)
         inputStream.read(clientSecurityType)
 
+        val authenticationResult = ByteBuffer.allocate(4).putInt(0).array()
+        outputStream.write(authenticationResult)
+        outputStream.flush()
+
         socket.close()
         thread.join()
 
         assertEquals(expectedProtocolVersion, protocolVersion)
         assertEquals(1, clientSecurityType[0].toInt())
+        assertTrue(wasHandshakeSuccessful)
     }
 }

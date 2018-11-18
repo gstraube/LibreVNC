@@ -1,11 +1,13 @@
 package com.github.librevnc
 
 import org.jetbrains.anko.AnkoLogger
+import org.jetbrains.anko.info
 import org.jetbrains.anko.warn
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.PrintWriter
 import java.net.Socket
+import java.nio.ByteBuffer
 
 class VncClient(host: String, port: Int) : AnkoLogger {
 
@@ -29,9 +31,9 @@ class VncClient(host: String, port: Int) : AnkoLogger {
             }
 
             val serverSecurityType = ByteArray(2)
-            inputStream.read(serverSecurityType)
+            var bytesRead = inputStream.read(serverSecurityType)
             val supportedSecurityType = 1
-            if (supportedSecurityType == serverSecurityType[1].toInt()) {
+            if (bytesRead == 2 && supportedSecurityType == serverSecurityType[1].toInt()) {
                 out.write(supportedSecurityType)
                 out.flush()
             } else {
@@ -40,7 +42,17 @@ class VncClient(host: String, port: Int) : AnkoLogger {
                 return false
             }
 
-            return true
+            val authenticationResult = ByteArray(4)
+            bytesRead = inputStream.read(authenticationResult)
+            inputStream.read(authenticationResult)
+
+            if (bytesRead == 4 && ByteBuffer.wrap(authenticationResult).int == 0) {
+                return true
+            } else {
+                warn("Authentication failed")
+            }
+
+            return false
         } else {
             warn("Socket is not connected")
 
