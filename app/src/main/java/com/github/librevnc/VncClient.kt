@@ -1,7 +1,6 @@
 package com.github.librevnc
 
 import org.jetbrains.anko.AnkoLogger
-import org.jetbrains.anko.info
 import org.jetbrains.anko.warn
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -17,7 +16,8 @@ class VncClient(host: String, port: Int) : AnkoLogger {
         if (socket.isConnected) {
             val inputStream = socket.getInputStream()
             val bufferedReader = BufferedReader(InputStreamReader(inputStream))
-            val out = PrintWriter(socket.getOutputStream(), true)
+            val outputStream = socket.getOutputStream()
+            val out = PrintWriter(outputStream, true)
 
             val serverProtocolVersion = bufferedReader.readLine()
             val supportedProtocolVersion = "RFB 003.008"
@@ -34,7 +34,7 @@ class VncClient(host: String, port: Int) : AnkoLogger {
             var bytesRead = inputStream.read(serverSecurityType)
             val supportedSecurityType = 1
             if (bytesRead == 2 && supportedSecurityType == serverSecurityType[1].toInt()) {
-                out.write(supportedSecurityType)
+                outputStream.write(supportedSecurityType)
                 out.flush()
             } else {
                 warn("Unsupported server security type: $serverSecurityType")
@@ -57,6 +57,69 @@ class VncClient(host: String, port: Int) : AnkoLogger {
             warn("Socket is not connected")
 
             return false
+        }
+    }
+
+    fun initialize(shareAccess: Boolean = true): ServerInitMessage? {
+        if (socket.isConnected) {
+            val shareAccessFlag = if (shareAccess) 1 else 0
+
+            val inputStream = socket.getInputStream()
+            val outputStream = socket.getOutputStream()
+
+            outputStream.write(shareAccessFlag)
+            outputStream.flush()
+
+            val expectedNumberOfBytes = 24
+            val serverInitMessage = ByteArray(expectedNumberOfBytes)
+            var bytesRead = inputStream.read(serverInitMessage)
+
+            if (bytesRead == expectedNumberOfBytes) {
+                val byteBuffer = ByteBuffer.wrap(serverInitMessage)
+
+                val frameBufferWidth = byteBuffer.short
+                val frameBufferHeight = byteBuffer.short
+
+                val bitsPerPixel = byteBuffer.get()
+                val depth = byteBuffer.get()
+                val bigEndianFlag = byteBuffer.get()
+                val trueColorFlag = byteBuffer.get()
+
+                val redMax = byteBuffer.short
+                val greenMax = byteBuffer.short
+                val blueMax = byteBuffer.short
+
+                val redShift = byteBuffer.get()
+                val greenShift = byteBuffer.get()
+                val blueShift = byteBuffer.get()
+
+                // Padding
+                byteBuffer.get()
+                byteBuffer.get()
+                byteBuffer.get()
+
+                val desktopNameLength = byteBuffer.int
+                val desktopName = ByteArray(desktopNameLength)
+                bytesRead = inputStream.read(desktopName)
+                return if (bytesRead == desktopNameLength) {
+                    ServerInitMessage(
+                        frameBufferWidth, frameBufferHeight, bitsPerPixel, depth, bigEndianFlag,
+                        trueColorFlag, redMax, greenMax, blueMax, redShift, greenShift, blueShift, String(desktopName)
+                    )
+                } else {
+                    warn("Could not read desktop name")
+
+                    null
+                }
+            } else {
+                warn("Could not read server initialization message")
+
+                return null
+            }
+        } else {
+            warn("Socket is not connected")
+
+            return null
         }
     }
 }

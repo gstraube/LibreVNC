@@ -48,10 +48,94 @@ class VncClientTest {
         outputStream.flush()
 
         socket.close()
+        serverSocket.close()
         thread.join()
 
         assertEquals(expectedProtocolVersion, protocolVersion)
         assertEquals(1, clientSecurityType[0].toInt())
         assertTrue(wasHandshakeSuccessful)
+    }
+
+    @Test
+    fun initialize() {
+        val serverSocket = ServerSocket(19215)
+
+        val vncClient = VncClient("localhost", 19215)
+        var serverInitMessage: ServerInitMessage? = null
+        val thread = Thread(Runnable {
+            serverInitMessage = vncClient.initialize()
+        })
+
+        thread.start()
+
+        val socket = serverSocket.accept()
+        val outputStream = socket.getOutputStream()
+        val inputStream = socket.getInputStream()
+
+        val shareAccessFlag = ByteArray(1)
+        val bytesRead = inputStream.read(shareAccessFlag)
+        assertEquals(1, bytesRead)
+
+        val buffer = ByteBuffer.allocate(38)
+        val frameBufferWidth: Short = 1920
+        buffer.putShort(frameBufferWidth)
+        val frameBufferHeight: Short = 1080
+        buffer.putShort(frameBufferHeight)
+
+        val bitsPerPixel: Byte = 32
+        buffer.put(bitsPerPixel)
+        val depth: Byte = 24
+        buffer.put(depth) // Depth
+        val bigEndianFlag: Byte = 0
+        buffer.put(bigEndianFlag)
+        val trueColorFlag: Byte = 1
+        buffer.put(trueColorFlag)
+
+        val redMax: Short = 255
+        buffer.putShort(redMax)
+        val greenMax: Short = 255
+        buffer.putShort(greenMax)
+        val blueMax: Short = 255
+        buffer.putShort(blueMax)
+
+        val redShift: Byte = 16
+        buffer.put(redShift)
+        val greenShift: Byte = 8
+        buffer.put(greenShift)
+        val blueShift: Byte = 0
+        buffer.put(blueShift)
+
+        // Padding
+        buffer.put(0)
+        buffer.put(0)
+        buffer.put(0)
+
+        val desktopName = "desktop_name:0"
+        val desktopNameAsArray = desktopName.toByteArray(Charsets.US_ASCII)
+        buffer.putInt(desktopNameAsArray.size) // Name length
+        buffer.put(desktopNameAsArray) // Name
+
+        outputStream.write(buffer.array())
+        outputStream.flush()
+
+        socket.close()
+        serverSocket.close()
+        thread.join()
+
+        assertEquals(1, shareAccessFlag[0].toInt())
+        assertTrue(serverInitMessage != null)
+        assertEquals(frameBufferWidth, serverInitMessage!!.frameBufferWidth)
+        assertEquals(frameBufferHeight, serverInitMessage!!.frameBufferHeight)
+        assertEquals(bitsPerPixel, serverInitMessage!!.bitsPerPixel)
+        assertEquals(depth, serverInitMessage!!.depth)
+        assertEquals(bigEndianFlag, serverInitMessage!!.bigEndianFlag)
+        assertEquals(trueColorFlag, serverInitMessage!!.trueColorFlag)
+        assertEquals(redMax, serverInitMessage!!.redMax)
+        assertEquals(greenMax, serverInitMessage!!.greenMax)
+        assertEquals(blueMax, serverInitMessage!!.blueMax)
+        assertEquals(redShift, serverInitMessage!!.redShift)
+        assertEquals(greenShift, serverInitMessage!!.greenShift)
+        assertEquals(blueShift, serverInitMessage!!.blueShift)
+        assertEquals(desktopName, serverInitMessage!!.desktopName)
     }
 }
