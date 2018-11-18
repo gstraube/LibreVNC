@@ -44,7 +44,6 @@ class VncClient(host: String, port: Int) : AnkoLogger {
 
             val authenticationResult = ByteArray(4)
             bytesRead = inputStream.read(authenticationResult)
-            inputStream.read(authenticationResult)
 
             if (bytesRead == 4 && ByteBuffer.wrap(authenticationResult).int == 0) {
                 return true
