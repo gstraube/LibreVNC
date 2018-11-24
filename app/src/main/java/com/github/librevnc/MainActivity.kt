@@ -25,6 +25,9 @@ class MainActivity : AppCompatActivity() {
                 uiThread { toast("Received server init message (desktop name: ${serverInitMessage.desktopName}") }
 
                 vncClient.setEncodings()
+
+                vncClient.sendFramebufferUpdateRequest(width = serverInitMessage.frameBufferWidth,
+                    height = serverInitMessage.frameBufferHeight)
             }
         }
     }

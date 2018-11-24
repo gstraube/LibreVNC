@@ -142,4 +142,31 @@ class VncClient(host: String, port: Int) : AnkoLogger {
             warn("Socket is not connected")
         }
     }
+
+    fun sendFramebufferUpdateRequest(width: Short, height: Short, isIncremental: Boolean = true) {
+        if (socket.isConnected) {
+            val outputStream = socket.getOutputStream()
+
+            val framebufferUpdateRequest = ByteBuffer.allocate(10)
+            val messageType: Byte = 3
+            framebufferUpdateRequest.put(messageType)
+
+            val incremental: Byte =  if (isIncremental) 1 else 0
+            framebufferUpdateRequest.put(incremental)
+
+            val xPosition: Short = 0
+            framebufferUpdateRequest.putShort(xPosition)
+
+            val yPosition: Short = 0
+            framebufferUpdateRequest.putShort(yPosition)
+
+            framebufferUpdateRequest.putShort(width)
+            framebufferUpdateRequest.putShort(height)
+
+            outputStream.write(framebufferUpdateRequest.array())
+            outputStream.flush()
+        } else {
+            warn("Socket is not connected")
+        }
+    }
 }

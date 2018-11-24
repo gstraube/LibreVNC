@@ -1,8 +1,7 @@
 package com.github.librevnc
 
 import org.junit.After
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
+import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 import java.io.*
@@ -169,5 +168,36 @@ class VncClientTest {
         bytesRead = inputStream.read(encodingType)
         assertEquals(4, bytesRead)
         assertEquals(0, ByteBuffer.wrap(encodingType).int)
+    }
+
+    @Test
+    fun sendFramebufferUpdateRequest() {
+        vncClient.sendFramebufferUpdateRequest(width = 1920, height = 1080)
+
+        val expectedNumberOfBytes = 10
+        val setEncodingsMessage = ByteArray(expectedNumberOfBytes)
+        val bytesRead = inputStream.read(setEncodingsMessage)
+
+        assertEquals(expectedNumberOfBytes, bytesRead)
+
+        val byteBuffer = ByteBuffer.wrap(setEncodingsMessage)
+
+        val messageType = byteBuffer.get()
+        assertEquals(3, messageType.toInt())
+
+        val incremental = byteBuffer.get()
+        assertNotEquals(0, incremental)
+
+        val xPosition = byteBuffer.short
+        assertEquals(0, xPosition.toInt())
+
+        val yPosition = byteBuffer.short
+        assertEquals(0, yPosition.toInt())
+
+        val width = byteBuffer.short
+        assertEquals(1920, width.toInt())
+
+        val height = byteBuffer.short
+        assertEquals(1080, height.toInt())
     }
 }
