@@ -1,21 +1,42 @@
 package com.github.librevnc
 
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.io.PrintWriter
+import java.io.*
 import java.net.ServerSocket
+import java.net.Socket
 import java.nio.ByteBuffer
 
 class VncClientTest {
 
+    private lateinit var serverSocket: ServerSocket
+    private lateinit var socket: Socket
+    private lateinit var inputStream: InputStream
+    private lateinit var outputStream: OutputStream
+    private lateinit var vncClient: VncClient
+
+    @Before
+    fun setup() {
+        val port = 19215
+        serverSocket = ServerSocket(port)
+        vncClient = VncClient("localhost", port)
+
+        socket = serverSocket.accept()
+        inputStream = socket.getInputStream()
+        outputStream = socket.getOutputStream()
+    }
+
+    @After
+    fun cleanup() {
+        socket.close()
+        serverSocket.close()
+    }
+
     @Test
     fun performHandshake() {
-        val serverSocket = ServerSocket(19215)
-
-        val vncClient = VncClient("localhost", 19215)
         var wasHandshakeSuccessful = false
         val thread = Thread(Runnable {
             wasHandshakeSuccessful = vncClient.performHandshake()
@@ -23,11 +44,7 @@ class VncClientTest {
 
         thread.start()
 
-        val socket = serverSocket.accept()
-        val outputStream = socket.getOutputStream()
         val out = PrintWriter(outputStream)
-
-        val inputStream = socket.getInputStream()
         val bufferedReader = BufferedReader(InputStreamReader(inputStream))
 
         val expectedProtocolVersion = "RFB 003.008"
@@ -47,8 +64,6 @@ class VncClientTest {
         outputStream.write(authenticationResult)
         outputStream.flush()
 
-        socket.close()
-        serverSocket.close()
         thread.join()
 
         assertEquals(expectedProtocolVersion, protocolVersion)
@@ -58,19 +73,12 @@ class VncClientTest {
 
     @Test
     fun initialize() {
-        val serverSocket = ServerSocket(19215)
-
-        val vncClient = VncClient("localhost", 19215)
         var serverInitMessage: ServerInitMessage? = null
         val thread = Thread(Runnable {
             serverInitMessage = vncClient.initialize()
         })
 
         thread.start()
-
-        val socket = serverSocket.accept()
-        val outputStream = socket.getOutputStream()
-        val inputStream = socket.getInputStream()
 
         val shareAccessFlag = ByteArray(1)
         val bytesRead = inputStream.read(shareAccessFlag)
@@ -118,8 +126,6 @@ class VncClientTest {
         outputStream.write(buffer.array())
         outputStream.flush()
 
-        socket.close()
-        serverSocket.close()
         thread.join()
 
         assertEquals(1, shareAccessFlag[0].toInt())
@@ -141,17 +147,7 @@ class VncClientTest {
 
     @Test
     fun setEncodings() {
-        val serverSocket = ServerSocket(19215)
-
-        val vncClient = VncClient("localhost", 19215)
-        val thread = Thread(Runnable {
-            vncClient.setEncodings()
-        })
-
-        thread.start()
-
-        val socket = serverSocket.accept()
-        val inputStream = socket.getInputStream()
+        vncClient.setEncodings()
 
         val expectedNumberOfBytes = 4
         val setEncodingsMessage = ByteArray(expectedNumberOfBytes)
@@ -173,9 +169,5 @@ class VncClientTest {
         bytesRead = inputStream.read(encodingType)
         assertEquals(4, bytesRead)
         assertEquals(0, ByteBuffer.wrap(encodingType).int)
-
-        socket.close()
-        serverSocket.close()
-        thread.join()
     }
 }
