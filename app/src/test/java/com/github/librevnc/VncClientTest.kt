@@ -138,4 +138,44 @@ class VncClientTest {
         assertEquals(blueShift, serverInitMessage!!.blueShift)
         assertEquals(desktopName, serverInitMessage!!.desktopName)
     }
+
+    @Test
+    fun setEncodings() {
+        val serverSocket = ServerSocket(19215)
+
+        val vncClient = VncClient("localhost", 19215)
+        val thread = Thread(Runnable {
+            vncClient.setEncodings()
+        })
+
+        thread.start()
+
+        val socket = serverSocket.accept()
+        val inputStream = socket.getInputStream()
+
+        val expectedNumberOfBytes = 4
+        val setEncodingsMessage = ByteArray(expectedNumberOfBytes)
+        var bytesRead = inputStream.read(setEncodingsMessage)
+
+        assertEquals(expectedNumberOfBytes, bytesRead)
+
+        val byteBuffer = ByteBuffer.wrap(setEncodingsMessage)
+
+        val messageType = byteBuffer.get()
+        assertEquals(2, messageType.toInt())
+
+        byteBuffer.get() // Padding
+
+        val numberOfEncodings = byteBuffer.short
+        assertEquals(1, numberOfEncodings.toInt())
+
+        val encodingType = ByteArray(4)
+        bytesRead = inputStream.read(encodingType)
+        assertEquals(4, bytesRead)
+        assertEquals(0, ByteBuffer.wrap(encodingType).int)
+
+        socket.close()
+        serverSocket.close()
+        thread.join()
+    }
 }

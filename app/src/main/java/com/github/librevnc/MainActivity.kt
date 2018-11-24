@@ -23,6 +23,8 @@ class MainActivity : AppCompatActivity() {
             uiThread { toast("Handshake successful: $wasHandshakeSuccessful") }
             if (serverInitMessage != null) {
                 uiThread { toast("Received server init message (desktop name: ${serverInitMessage.desktopName}") }
+
+                vncClient.setEncodings()
             }
         }
     }

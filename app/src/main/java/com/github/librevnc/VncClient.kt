@@ -121,4 +121,25 @@ class VncClient(host: String, port: Int) : AnkoLogger {
             return null
         }
     }
+
+    fun setEncodings() {
+        if (socket.isConnected) {
+            val outputStream = socket.getOutputStream()
+
+            val setEncodingMessage = ByteBuffer.allocate(8)
+            val messageType: Byte = 2
+            setEncodingMessage.put(messageType)
+            val padding: Byte = 0
+            setEncodingMessage.put(padding)
+            val numberOfEncodings: Short = 1
+            setEncodingMessage.putShort(numberOfEncodings)
+            val rawEncodingType = 0
+            setEncodingMessage.putInt(rawEncodingType)
+
+            outputStream.write(setEncodingMessage.array())
+            outputStream.flush()
+        } else {
+            warn("Socket is not connected")
+        }
+    }
 }
