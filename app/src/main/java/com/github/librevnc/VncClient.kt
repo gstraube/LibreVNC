@@ -1,12 +1,14 @@
 package com.github.librevnc
 
+import android.graphics.Bitmap
 import org.jetbrains.anko.AnkoLogger
+import org.jetbrains.anko.info
 import org.jetbrains.anko.warn
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.io.PrintWriter
+import java.io.*
 import java.net.Socket
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
+
 
 class VncClient(host: String, port: Int) : AnkoLogger {
 
@@ -151,7 +153,7 @@ class VncClient(host: String, port: Int) : AnkoLogger {
             val messageType: Byte = 3
             framebufferUpdateRequest.put(messageType)
 
-            val incremental: Byte =  if (isIncremental) 1 else 0
+            val incremental: Byte = if (isIncremental) 1 else 0
             framebufferUpdateRequest.put(incremental)
 
             val xPosition: Short = 0
@@ -168,5 +170,92 @@ class VncClient(host: String, port: Int) : AnkoLogger {
         } else {
             warn("Socket is not connected")
         }
+    }
+
+    fun receiveFramebufferUpdate(bitsPerPixel: Byte, expectedNumberOfRectangles: Short): Bitmap? {
+        if (socket.isConnected) {
+            val inputStream = DataInputStream(BufferedInputStream(socket.getInputStream()))
+
+            var expectedNumberOfBytes = 4
+            var bytes = ByteArray(expectedNumberOfBytes)
+            var bytesRead = inputStream.read(bytes)
+
+            if (bytesRead != expectedNumberOfBytes) {
+                warn("Expected $expectedNumberOfBytes but got $bytesRead bytes")
+
+                return null
+            }
+
+            val framebufferUpdate = ByteBuffer.wrap(bytes)
+
+            val messageType = framebufferUpdate.get()
+
+            val expectedMessageType = 0
+            val actualMessageType = messageType.toInt()
+            if (actualMessageType != 0) {
+                warn("Wrong message type (expected $expectedMessageType but got $actualMessageType")
+
+                return null
+            }
+
+            framebufferUpdate.get() // Padding
+
+            val numberOfRectangles = framebufferUpdate.short
+
+            if (numberOfRectangles != expectedNumberOfRectangles) {
+                warn("Wrong number of rectangles (expected $expectedNumberOfRectangles but got$numberOfRectangles")
+            }
+
+            info("Received framebuffer update with $numberOfRectangles rectangles")
+
+            expectedNumberOfBytes = 12
+            bytes = ByteArray(expectedNumberOfBytes)
+            bytesRead = inputStream.read(bytes)
+            if (bytesRead != expectedNumberOfBytes) {
+                warn("Expected $expectedNumberOfBytes but got $bytesRead bytes")
+
+                return null
+            }
+
+            val rectangleHeader = ByteBuffer.wrap(bytes)
+
+            val xPosition = rectangleHeader.short
+            val yPosition = rectangleHeader.short
+            val width = rectangleHeader.short
+            val height = rectangleHeader.short
+            val encodingType = rectangleHeader.int
+
+            val props = "xPos: $xPosition, yPos: $yPosition, width: $width, height: $height, encoding: $encodingType"
+            info("Received rectangle with ($props)")
+
+            val bitsInAByte = 8
+            val pixelDataSize = (width * height * bitsPerPixel) / bitsInAByte
+
+            val allBytes = ByteArray(pixelDataSize)
+            val rectBytes = ByteArray((width.toInt() * bitsPerPixel) / bitsInAByte)
+            bytesRead = inputStream.read(rectBytes)
+            var totalBytes = bytesRead
+
+            var myIndex = 0
+            while (totalBytes < pixelDataSize) {
+                bytesRead = inputStream.read(rectBytes)
+                totalBytes += bytesRead
+
+                System.arraycopy(rectBytes, 0, allBytes, myIndex, bytesRead)
+                myIndex += bytesRead
+            }
+
+            val rawData = ByteBuffer.wrap(allBytes).order(ByteOrder.LITTLE_ENDIAN)
+
+            val bitmap = Bitmap.createBitmap(width.toInt(), height.toInt(), Bitmap.Config.ARGB_8888)
+            rawData.rewind()
+            bitmap.copyPixelsFromBuffer(rawData)
+
+            return bitmap
+        } else {
+            warn("Socket is not connected")
+        }
+
+        return null
     }
 }

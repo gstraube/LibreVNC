@@ -26,8 +26,15 @@ class MainActivity : AppCompatActivity() {
 
                 vncClient.setEncodings()
 
-                vncClient.sendFramebufferUpdateRequest(width = serverInitMessage.frameBufferWidth,
-                    height = serverInitMessage.frameBufferHeight)
+                vncClient.sendFramebufferUpdateRequest(
+                    width = serverInitMessage.frameBufferWidth,
+                    height = serverInitMessage.frameBufferHeight, isIncremental = false
+                )
+
+                vncClient.receiveFramebufferUpdate(
+                    bitsPerPixel = serverInitMessage.bitsPerPixel,
+                    expectedNumberOfRectangles = 1
+                )
             }
         }
     }
